@@ -1,0 +1,9 @@
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\bin\Debug\ClipEncypt.exe.config
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\bin\Debug\ClipEncypt.exe
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\bin\Debug\ClipEncypt.pdb
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\obj\Debug\ClipEncypt.csproj.AssemblyReference.cache
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\obj\Debug\ClipEncypt.Properties.Resources.resources
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\obj\Debug\ClipEncypt.csproj.GenerateResource.cache
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\obj\Debug\ClipEncypt.csproj.CoreCompileInputs.cache
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\obj\Debug\ClipEncypt.exe
+C:\Users\nin2k\source\repos\ClipEncypt\ClipEncypt\obj\Debug\ClipEncypt.pdb
