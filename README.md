@@ -13,9 +13,7 @@ ClipEncypt runs in the system tray. It can be used when DLP is spying on your we
 1. Copy some text to the clipboard.
 2. Press Ctrl+F1 to encrypt the text in the clipboard.
 3. Paste the encrypted text wherever you want.
-4. To decrypt the text, copy the encrypted text to the clipboard.
-5. Press Ctrl+F2 to decrypt the text in the clipboard and paste it.
-6. Also when pasting after CTRL+F2 the clipboard is decypted. 
+4. Press Ctrl+F2 to decrypt the text and have it typed into another program.
 
 ## Note
 - This application uses a simple key-based encryption algorithm and should not be used for secure data encryption.
