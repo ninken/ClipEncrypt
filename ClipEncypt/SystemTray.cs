@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Configuration;
 
 namespace ClipEncrypt
 {
@@ -24,7 +25,7 @@ namespace ClipEncrypt
         private const int WM_HOTKEY = 0x0312;
         private NotifyIcon trayIcon;
         private string clipboardText;
-        private static string key = "L33tS3cret!";
+        private static string key = ConfigurationManager.AppSettings["EncyptSecret"];
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
@@ -49,7 +50,6 @@ namespace ClipEncrypt
 
         public TrayApplicationContext()
         {
-            // Initialize the tray icon
             trayIcon = new NotifyIcon()
             {
                 Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath),
@@ -57,17 +57,67 @@ namespace ClipEncrypt
                 ContextMenuStrip = new ContextMenuStrip(),
             };
 
+            // Add context menu items
+            RegisterContextMenu("Encrypt Clipboard (" + ConfigurationManager.AppSettings["EncyptClipboardHotkey"] + ")", (sender, e) => EncryptClipboard());
+            RegisterContextMenu("Type Clipboard (" + ConfigurationManager.AppSettings["TypeClipboardHotkey"] + ")", (sender, e) => TypeClipboard());
+            RegisterContextMenu("Decrypt Clipboard (" + ConfigurationManager.AppSettings["DecypteClipboardHotkey"] + ")", (sender, e) => DecryptClipboard());
+
+            // Register hotkeys
+            RegisterHotkey(1, (Keys)Enum.Parse(typeof(Keys), ConfigurationManager.AppSettings["EncyptClipboardHotkey"]));
+            RegisterHotkey(2, (Keys)Enum.Parse(typeof(Keys), ConfigurationManager.AppSettings["TypeClipboardHotkey"]));
+            RegisterHotkey(3, (Keys)Enum.Parse(typeof(Keys), ConfigurationManager.AppSettings["DecypteClipboardHotkey"]));
+
             // Add a menu item to close the application
             var exitMenuItem = new ToolStripMenuItem("Exit", null, Exit);
             trayIcon.ContextMenuStrip.Items.Add(exitMenuItem);
 
-            // Register the hotkeys using the Windows API
-            const uint MOD_CTRL = 0x0002;
-            RegisterHotKey(IntPtr.Zero, 1, MOD_CTRL, (uint)Keys.F1);
-            RegisterHotKey(IntPtr.Zero, 2, MOD_CTRL, (uint)Keys.F2);
-
             // Hook into the message loop to capture the hotkeys
             Application.AddMessageFilter(new MessageFilter(HotkeyPressed));
+        }
+
+        private void RegisterContextMenu(string menuText, EventHandler eventHandler)
+        {
+            var menuItem = new ToolStripMenuItem(menuText, null, eventHandler);
+            trayIcon.ContextMenuStrip.Items.Add(menuItem);
+        }
+
+        private void RegisterHotkey(int hotkeyId, Keys hotkey)
+        {
+            const uint MOD_CTRL = 0x0002;
+            RegisterHotKey(IntPtr.Zero, hotkeyId, MOD_CTRL, (uint)hotkey);
+        }
+
+        private void EncryptClipboard()
+        {
+            if (Clipboard.ContainsText())
+            {
+                clipboardText = Encrypt(Clipboard.GetText());
+                Clipboard.SetText(clipboardText);
+            }
+        }
+
+        private void TypeClipboard()
+        {
+            if (clipboardText != null)
+            {
+                string windowTitle = GetForegroundWindowTitle();
+                clipboardText = Clipboard.GetText();
+                string decryptedText = Decrypt(clipboardText);
+
+                SetForegroundWindowTitle(windowTitle);
+                SendKeyStrokes(decryptedText);
+            }
+        }
+
+        private void DecryptClipboard()
+        {
+            if (clipboardText != null)
+            {
+                string windowTitle = GetForegroundWindowTitle();
+
+                clipboardText = Clipboard.GetText();
+                Clipboard.SetText(Decrypt(clipboardText));
+            }
         }
 
         private void Exit(object sender, EventArgs e)
@@ -79,14 +129,21 @@ namespace ClipEncrypt
         public static string Encrypt(string input)
         {
             StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < input.Length; i++)
+            try
             {
-                char c = input[i];
-                char k = key[i % key.Length];
-                char encrypted = (char)((int)c + (int)k);
-                sb.Append(encrypted);
+                for (int i = 0; i < input.Length; i++)
+                {
+                    char c = input[i];
+                    char k = key[i % key.Length];
+                    char encrypted = (char)((int)c + (int)k);
+                    sb.Append(encrypted);
+                }
+                return sb.ToString();
             }
-            return sb.ToString();
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         public static string Decrypt(string input)
@@ -117,39 +174,6 @@ namespace ClipEncrypt
             KEYDOWN = 0x0000,
             KEYUP = 0x0002,
             UNICODE = 0x0004,
-        }
-
-        public static void SendKeyStroke(char key)
-        {
-            INPUT[] inputs = new INPUT[2];
-
-            inputs[0] = new INPUT
-            {
-                type = 1, // Keyboard input
-                u = new InputUnion
-                {
-                    ki = new KEYBDINPUT
-                    {
-                        wVk = (ushort)key,
-                        wScan = (ushort)key,
-                        dwFlags = (uint)KEYEVENTF.KEYDOWN
-                    }
-                }
-            };
-            inputs[1] = new INPUT
-            {
-                type = 1, // Keyboard input
-                u = new InputUnion
-                {
-                    ki = new KEYBDINPUT
-                    {
-                        wVk = (ushort)key,
-                        wScan = (ushort)key,
-                        dwFlags = (uint)KEYEVENTF.KEYUP
-                    }
-                }
-            };
-            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -220,17 +244,21 @@ namespace ClipEncrypt
                     if (clipboardText != null)
                     {
                         string windowTitle = GetForegroundWindowTitle();
+                        clipboardText = Clipboard.GetText();
+                        string decryptedText = Decrypt(clipboardText);
+
+                        SetForegroundWindowTitle(windowTitle);
+                        SendKeyStrokes(decryptedText);
+                    }
+                }
+                else if (message.Message.WParam.ToInt32() == 3) // Send encrypted text back to clipboard unencrypted
+                {
+                    if (clipboardText != null)
+                    {
+                        string windowTitle = GetForegroundWindowTitle();
 
                         clipboardText = Clipboard.GetText();
-
-                        string decryptedText = Decrypt(clipboardText);
-                        //string decryptedText = "Hello World!";
-
-                        // Set the foreground window title
-                        SetForegroundWindowTitle(windowTitle);
-
-                        // Simulate keystrokes for the decrypted text
-                        SendKeyStrokes(decryptedText);
+                        Clipboard.SetText(Decrypt(clipboardText));
                     }
                 }
             }
@@ -270,7 +298,6 @@ namespace ClipEncrypt
                 Thread.Sleep(5);
             }
         }
-
 
         private void SendKeyDown(uint keyCode)
         {
@@ -349,42 +376,31 @@ namespace ClipEncrypt
             };
             SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
+    }
 
+    public class MessageFilter : IMessageFilter
+    {
+        public event EventHandler<MessageEventArgs> MessageReceived;
 
-        static bool NeedsEscaping(string character)
+        public MessageFilter(EventHandler<MessageEventArgs> messageReceived)
         {
-            return character == "+" || character == "^" || character == "%" || character == "~" || character == "(" || character == ")" || character == "{" || character == "}" || character == "[" || character == "]" || character == "<" || character == ">";
+            MessageReceived += messageReceived;
         }
 
-        // Rest of the code...
-
-        class MessageFilter : IMessageFilter
+        public bool PreFilterMessage(ref Message m)
         {
-            private Action<object, EventArgs> _callback;
-
-            public MessageFilter(Action<object, EventArgs> callback)
-            {
-                _callback = callback;
-            }
-
-            public bool PreFilterMessage(ref Message m)
-            {
-                if (m.Msg == WM_HOTKEY)
-                {
-                    _callback(null, new MessageEventArgs(m));
-                    return true;
-                }
-                return false;
-            }
+            MessageReceived?.Invoke(this, new MessageEventArgs(m));
+            return false;
         }
+    }
 
-        class MessageEventArgs : EventArgs
+    public class MessageEventArgs : EventArgs
+    {
+        public Message Message { get; }
+
+        public MessageEventArgs(Message message)
         {
-            public MessageEventArgs(Message message)
-            {
-                Message = message;
-            }
-            public Message Message { get; }
+            Message = message;
         }
     }
 }
